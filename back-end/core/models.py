@@ -2,4 +2,16 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 class User(AbstractUser):
-    email = models.EmailField(unique=True)
+    STUDENT = 'student'
+    INSTRUCTOR = 'instructor'
+
+    ROLE_CHOICES = [
+        (STUDENT, 'Student'),
+        (INSTRUCTOR, 'Instructor'),
+    ]
+
+    role = models.CharField(
+        max_length=10,
+        choices=ROLE_CHOICES,
+        default=STUDENT,
+    )

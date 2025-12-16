@@ -1,4 +1,10 @@
 back-end/venv/
+venv/
+env/
+.venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
 # Python
 __pycache__/
 *.pyc

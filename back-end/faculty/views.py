@@ -20,6 +20,7 @@ def student_detail(request, id):
     serializer = StudentSerializer(student)
     return Response(serializer.data)
 
+
 @api_view()
 def instructor_list(request):
     queryset = Instructor.objects.all()

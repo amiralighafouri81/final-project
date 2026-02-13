@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('faculty', '0001_initial'),
+        ('faculty', '0002_delete_course'),
     ]
 
     operations = [
@@ -19,7 +19,6 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('semester', models.IntegerField()),
                 ('name', models.CharField(max_length=100)),
-                ('condition', models.FloatField(blank=True, null=True)),
                 ('instructor', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='faculty.instructor')),
             ],
         ),

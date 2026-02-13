@@ -23,7 +23,7 @@ class Student(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     student_number = models.CharField(max_length=10, unique=True)
     # resume_link
-    biography = models.TextField(blank=True, default='')
+    biography = models.TextField()
 
     def clean(self):
         # Check if the user's role is "student"

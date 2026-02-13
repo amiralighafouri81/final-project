@@ -28,11 +28,20 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Course',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('semester', models.IntegerField()),
+                ('name', models.CharField(max_length=100)),
+                ('instructor', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='faculty.instructor')),
+            ],
+        ),
+        migrations.CreateModel(
             name='Student',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('student_number', models.CharField(max_length=10, unique=True)),
-                ('biography', models.TextField(blank=True, default='')),
+                ('biography', models.TextField()),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
             options={

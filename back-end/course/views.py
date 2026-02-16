@@ -1,38 +1,26 @@
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, RetrieveModelMixin
+from rest_framework.exceptions import PermissionDenied
 from .models import Course
+from .pagination import DefaultPagination
 from .serializers import CourseSerializer
+from .filters import CourseFilter
 
-class CourseList(APIView):
-    def get(self, request):
-        queryset = Course.objects.all()
-        serializer = CourseSerializer(queryset, many=True)
-        return Response(serializer.data)
 
-    def post(self, request):
-        serializer = CourseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+class CourseViewSet(ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = CourseFilter
+    pagination_class = DefaultPagination
 
-class CourseDetail(APIView):
-    def get(self, request, id):
-        course = get_object_or_404(Course, pk=id)
-        serializer = CourseSerializer(course)
-        return Response(serializer.data)
-    def put(self, request, id):
-        course = get_object_or_404(Course, pk=id)
-        serializer = CourseSerializer(course, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
-    def delete(self, request, id):
-        course = get_object_or_404(Course, pk=id)
-        course.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+    def destroy(self, request, *args, **kwargs):
+        # Check if the user is staff
+        if not request.user.is_staff:
+            raise PermissionDenied("You do not have permission to delete this object.")
+
+        # Proceed with the default destroy method if user is staff
+        return super().destroy(request, *args, **kwargs)

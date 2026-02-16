@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'djoser',
     'faculty',
     'core',
+    'admin_area',
     'course',
     'request',
 ]
@@ -65,7 +67,7 @@ ROOT_URLCONF = 'TAmanagement.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -93,6 +95,25 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
     },
+        #'default': {
+        #    'ENGINE': 'django.db.backends.mysql',
+        #    'NAME': 'TAmanagement',
+        #    'HOST' : 'localhost',
+        #    'USER': 'root',
+        #    'PASSWORD': '47714771Abbas$',
+        #},
+    #'default': {
+    #    'ENGINE': 'django.db.backends.mysql',
+    #    'NAME': os.getenv('DB_NAME', 'django_db'),
+    #    'USER': os.getenv('DB_USER', 'django_user'),
+    #    'PASSWORD': os.getenv('DB_PASSWORD', 'django_password'),
+    #    'HOST': os.getenv('DB_HOST', 'db'),
+    #    'PORT': os.getenv('DB_PORT', '3306'),
+    #},
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # },
 
 }
 

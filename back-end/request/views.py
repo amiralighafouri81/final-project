@@ -1,5 +1,7 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
 from faculty.models import Student, Instructor
 from .models import Request
 from .serializers import StudentRequestSerializer, InstructorRequestSerializer, AdminRequestSerializer
@@ -33,9 +35,25 @@ class RequestViewSet(ModelViewSet):
             # Get all courses taught by the current instructor
             instructor = Instructor.objects.get(user=user)
             courses = instructor.course_set.all()  # All courses where the instructor is teaching
-
-            # Get all requests associated with these courses
-            return Request.objects.filter(course__in=courses)
+            # Get all requests associated with these courses, excluding declined requests
+            return Request.objects.filter(course__in=courses).exclude(status=Request.REQUSET_STATUS_DECLINED)
+            # For other roles (admin, student), show all requests or adjust as necessary
 
     def get_serializer_context(self):
         return {'request': self.request}
+
+    def destroy(self, request, *args, **kwargs):
+        # Get the Request instance
+        request_instance = get_object_or_404(Request, pk=kwargs['pk'])
+        user = request.user
+
+        # Prevent instructors from deleting requests
+        if user.role == 'instructor':
+            raise PermissionDenied("Instructors are not allowed to delete requests.")
+
+        # Prevent students from deleting accepted or declined requests
+        if user.role == 'student' and request_instance.status in ['accepted', 'declined']:
+            raise PermissionDenied("Students are not allowed to delete a request with accepted or declined status.")
+
+        # Call the parent class's destroy method for other roles
+        return super().destroy(request, *args, **kwargs)

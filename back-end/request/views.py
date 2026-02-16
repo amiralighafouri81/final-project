@@ -1,38 +1,41 @@
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, RetrieveModelMixin
+from faculty.models import Student, Instructor
 from .models import Request
-from .serializers import CourseSerializer
+from .serializers import StudentRequestSerializer, InstructorRequestSerializer, AdminRequestSerializer
 
-class RequestList(APIView):
-    def get(self, request):
-        queryset = Request.objects.all()
-        serializer = CourseSerializer(queryset, many=True)
-        return Response(serializer.data)
 
-    def post(self, request):
-        serializer = CourseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+class RequestViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
 
-class RequestDetail(APIView):
-    def get(self, request, id):
-        request = get_object_or_404(Request, pk=id)
-        serializer = CourseSerializer(request)
-        return Response(serializer.data)
-    def put(self, request, id):
-        request = get_object_or_404(Request, pk=id)
-        serializer = CourseSerializer(request, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
-    def delete(self, request, id):
-        request = get_object_or_404(Request, pk=id)
-        request.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def get_serializer_class(self):
+        # Get the user role and return the corresponding serializer
+        user = self.request.user
+        if user.role == 'instructor':
+            return InstructorRequestSerializer
+        elif user.role == 'student':
+            return StudentRequestSerializer
+        elif user.role =='admin':
+            return AdminRequestSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_staff:
+            return Request.objects.all()
+
+        if user.role == 'student':
+            # Only filter requests for the logged-in student
+            student_id, created = Student.objects.only("id").get_or_create(user_id=user.id)
+            return Request.objects.filter(student=student_id)
+
+        elif user.role == 'instructor':
+            # Get all courses taught by the current instructor
+            instructor = Instructor.objects.get(user=user)
+            courses = instructor.course_set.all()  # All courses where the instructor is teaching
+
+            # Get all requests associated with these courses
+            return Request.objects.filter(course__in=courses)
+
+    def get_serializer_context(self):
+        return {'request': self.request}

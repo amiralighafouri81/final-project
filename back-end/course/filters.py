@@ -6,6 +6,4 @@ class CourseFilter(FilterSet):
         model = Course
         fields = {
             'name': ['icontains'],
-            'id' : ['exact'],
-            'instructor': ['exact'],
         }

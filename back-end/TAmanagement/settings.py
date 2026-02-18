@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     'djoser',
     'faculty',
     'core',
-    'admin_area',
     'course',
     'request',
 ]

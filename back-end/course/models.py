@@ -5,7 +5,7 @@ from request.models import Request
 
 
 class Course(models.Model):
-    semester = models.IntegerField()
+    semester = models.CharField(max_length=50)
     instructor = models.ForeignKey(Instructor, on_delete=models.PROTECT, null=True, blank=True)
     name = models.CharField(max_length=100)
     head_TA = models.OneToOneField(
@@ -29,7 +29,7 @@ class Course(models.Model):
 
         if self.condition is not None:
             if self.instructor and (self.condition < 10 or self.condition > 20):
-                raise PermissionDenied("Instructors can only enter numbers between 10 and 20 for the condition.")
+                raise PermissionDenied("condition must be between 10 and 20.")
 
     def save(self, *args, **kwargs):
         # Validate before saving
@@ -39,6 +39,6 @@ class Course(models.Model):
 
 
     def __str__(self):
-        return f"id: {self.id} - {self.name} - {self.instructor} - Semester: {self.semester} - Minimum Score: {self.condition} "
+        return f"id: {self.id} - {self.name} - {self.instructor} - Semester: {self.semester} "
 
 

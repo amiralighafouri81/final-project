@@ -44,9 +44,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_yasg',
     'djoser',
-    'admin_area',
     'faculty',
     'core',
+    'admin_area',
     'course',
     'request',
 ]
@@ -94,9 +94,6 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', '47714771Abbas$'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-        },
     },
         #'default': {
         #    'ENGINE': 'django.db.backends.mysql',
@@ -199,7 +196,6 @@ SWAGGER_SETTINGS = {
 
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_METHODS = [
     "GET",

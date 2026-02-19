@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 
+
 class UserCreateSerializer(BaseUserCreateSerializer):
     student_number = serializers.CharField(write_only=True)
     password_confirmation = serializers.CharField(write_only=True, style={'input_type': 'password'})
@@ -35,8 +36,8 @@ class UserCreateSerializer(BaseUserCreateSerializer):
                 Student.objects.create(user=user, student_number=self.student_number)
             except IntegrityError:
                 # Catch the duplicate entry error and raise a ValidationError
+                user.delete()
                 raise DRFValidationError({"student_number": "A student with that student number already exists."})
-
         return user
 
 class UserSerializer(BaseUserSerializer):
@@ -154,3 +155,5 @@ class UserSerializer(BaseUserSerializer):
                     raise DRFValidationError({"staff_id": "An instructor with that staff ID already exists."})
 
         return super().validate(attrs)
+
+

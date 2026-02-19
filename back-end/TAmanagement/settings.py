@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_yasg',
     'djoser',
+    'admin_area',
     'faculty',
     'core',
     'course',
@@ -93,6 +94,9 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', '47714771Abbas$'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
     },
         #'default': {
         #    'ENGINE': 'django.db.backends.mysql',

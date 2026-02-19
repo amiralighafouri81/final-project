@@ -4,21 +4,74 @@ from django.template.response import TemplateResponse
 from django.shortcuts import redirect
 from django import forms
 from django.core.exceptions import ValidationError
+
 import csv
 import io
+
 from faculty.models import Instructor
 from core.models import User  # Assuming User model exists in core.models
 
-# Form for bulk uploading instructors
+from course.models import Course
+from request.models import Request
+
+
+# ---------------------------
+# Helpers (important part)
+# ---------------------------
+def _open_csv_text_stream(uploaded_file):
+    """
+    Returns a text stream for csv.DictReader with robust encoding handling.
+    Priority:
+      1) utf-8-sig (handles BOM; best for Excel UTF-8)
+      2) utf-8
+      3) cp1256 / windows-1256 (common Persian CSV from Windows/Excel)
+    """
+    raw = uploaded_file.file  # binary file-like
+
+    for enc in ("utf-8-sig", "utf-8", "cp1256", "windows-1256"):
+        try:
+            raw.seek(0)
+            return io.TextIOWrapper(raw, encoding=enc, newline="")
+        except Exception:
+            continue
+
+    # fallback
+    raw.seek(0)
+    return io.TextIOWrapper(raw, encoding="utf-8", errors="replace", newline="")
+
+
+def _normalize_reader_headers(reader):
+    # remove BOM and trim spaces
+    if reader.fieldnames:
+        reader.fieldnames = [h.strip().lstrip("\ufeff") for h in reader.fieldnames]
+
+
+def _clean_row(row: dict):
+    # trim keys + string values
+    clean = {}
+    for k, v in row.items():
+        kk = k.strip().lstrip("\ufeff") if isinstance(k, str) else k
+        vv = v.strip() if isinstance(v, str) else v
+        clean[kk] = vv
+    return clean
+
+
+# ---------------------------
+# Instructor bulk upload
+# ---------------------------
 class BulkInstructorUploadForm(forms.Form):
     csv_file = forms.FileField(label="CSV File", required=True)
 
-# Extend the functionality of the existing InstructorAdmin
+
 def add_bulk_upload_functionality(admin_class):
     def get_urls(self):
         urls = super(admin_class, self).get_urls()
         custom_urls = [
-            path('bulk_upload/', self.admin_site.admin_view(self.bulk_upload), name="bulk_upload_instructors"),
+            path(
+                "bulk_upload/",
+                self.admin_site.admin_view(self.bulk_upload),
+                name="bulk_upload_instructors",
+            ),
         ]
         return custom_urls + urls
 
@@ -27,44 +80,66 @@ def add_bulk_upload_functionality(admin_class):
             form = BulkInstructorUploadForm(request.POST, request.FILES)
             if form.is_valid():
                 csv_file = form.cleaned_data["csv_file"]
-                data_set = csv_file.read().decode('UTF-8')
-                io_string = io.StringIO(data_set)
-                reader = csv.DictReader(io_string)
-                
+
+                text_stream = _open_csv_text_stream(csv_file)
+                reader = csv.DictReader(text_stream)
+                _normalize_reader_headers(reader)
+
                 created_instructors = []
+
                 for row in reader:
+                    row = _clean_row(row)
+
                     try:
+                        username = row.get("username", "")
+                        if not username:
+                            raise ValidationError("Missing username.")
+
                         user, user_created = User.objects.get_or_create(
-                            username=row["username"],
+                            username=username,
                             defaults={
-                                "first_name": row["first_name"],
-                                "last_name": row["last_name"],
-                                "email": row["email"],
+                                "first_name": row.get("first_name", ""),
+                                "last_name": row.get("last_name", ""),
+                                "email": row.get("email", ""),
                                 "role": User.INSTRUCTOR,  # Assuming role field exists
                             },
                         )
 
+                        # if user already exists, make sure role is instructor
+                        if not user_created and getattr(user, "role", None) != User.INSTRUCTOR:
+                            raise ValidationError(
+                                f"User {user.username} exists but is not an instructor."
+                            )
+
                         # Set the password only if it is provided in the CSV
-                        if "password" in row and row["password"]:
+                        if row.get("password"):
                             user.set_password(row["password"])
                             user.save()
-                        if not user_created and user.role != User.INSTRUCTOR:
-                            raise ValidationError(f"User {user.username} exists but is not an instructor.")
-                        
+
                         instructor, instructor_created = Instructor.objects.get_or_create(
                             user=user,
                             defaults={
-                                "staff_id": row["staff_id"],
-                                "way_of_communication": row["way_of_communication"],
-                                "research_fields": row["research_fields"],
+                                "staff_id": row.get("staff_id", ""),
+                                "way_of_communication": row.get("way_of_communication", ""),
+                                "research_fields": row.get("research_fields", ""),
                             },
                         )
+
                         if instructor_created:
                             created_instructors.append(user.username)
+
                     except Exception as e:
-                        self.message_user(request, f"Error processing row for {row.get('username', 'Unknown')}: {e}", level="error")
-                
-                self.message_user(request, f"{len(created_instructors)} instructors created successfully.", level="success")
+                        self.message_user(
+                            request,
+                            f"Error processing row for {row.get('username', 'Unknown')}: {e}",
+                            level="error",
+                        )
+
+                self.message_user(
+                    request,
+                    f"{len(created_instructors)} instructors created successfully.",
+                    level="success",
+                )
                 return redirect("..")
         else:
             form = BulkInstructorUploadForm()
@@ -74,30 +149,31 @@ def add_bulk_upload_functionality(admin_class):
         context["opts"] = self.model._meta
         return TemplateResponse(request, "admin/bulk_upload_instructors.html", context)
 
-    # Add the custom methods to the admin class
     admin_class.get_urls = get_urls
     admin_class.bulk_upload = bulk_upload
     return admin_class
 
-# Import the existing InstructorAdmin
-from faculty.admin import InstructorAdmin
 
-# Extend the functionality
+from faculty.admin import InstructorAdmin
 InstructorAdmin = add_bulk_upload_functionality(InstructorAdmin)
 
-from course.models import Course
-from request.models import Request
 
-# Form for bulk uploading courses
+# ---------------------------
+# Course bulk upload
+# ---------------------------
 class BulkCourseUploadForm(forms.Form):
     csv_file = forms.FileField(label="CSV File", required=True)
 
-# Extend the functionality of the existing CourseAdmin
+
 def add_bulk_upload_functionality_to_course(admin_class):
     def get_urls(self):
         urls = super(admin_class, self).get_urls()
         custom_urls = [
-            path('bulk_upload/', self.admin_site.admin_view(self.bulk_upload), name="bulk_upload_courses"),
+            path(
+                "bulk_upload/",
+                self.admin_site.admin_view(self.bulk_upload),
+                name="bulk_upload_courses",
+            ),
         ]
         return custom_urls + urls
 
@@ -106,49 +182,69 @@ def add_bulk_upload_functionality_to_course(admin_class):
             form = BulkCourseUploadForm(request.POST, request.FILES)
             if form.is_valid():
                 csv_file = form.cleaned_data["csv_file"]
-                data_set = csv_file.read().decode('UTF-8')
-                io_string = io.StringIO(data_set)
-                reader = csv.DictReader(io_string)
+
+                text_stream = _open_csv_text_stream(csv_file)
+                reader = csv.DictReader(text_stream)
+                _normalize_reader_headers(reader)
 
                 created_courses = []
+
                 for row in reader:
+                    row = _clean_row(row)
+
                     try:
-                        # Fetch instructor (optional)
+                        # instructor (optional)
                         instructor = None
-                        if row["instructor_username"]:
-                            instructor = Instructor.objects.get(user__username=row["instructor_username"])
+                        if row.get("instructor_username"):
+                            instructor = Instructor.objects.get(
+                                user__username=row["instructor_username"]
+                            )
 
-                        # Fetch head_TA (optional)
+                        # head_TA (optional)
                         head_ta_request = None
-                        if row["head_ta_request_id"]:
-                            head_ta_request = Request.objects.get(id=row["head_ta_request_id"])
+                        if row.get("head_ta_request_id"):
+                            head_ta_request = Request.objects.get(
+                                id=row["head_ta_request_id"]
+                            )
 
-                        # Create or update the course
+                        condition_val = None
+                        if row.get("condition"):
+                            condition_val = float(row["condition"])
+
                         course, course_created = Course.objects.get_or_create(
-                            name=row["name"],
-                            semester=row["semester"],
+                            name=row.get("name", ""),
+                            semester=row.get("semester", ""),
                             defaults={
                                 "instructor": instructor,
                                 "head_TA": head_ta_request,
-                                "condition": float(row["condition"]) if row["condition"] else None 
+                                "condition": condition_val,
                             },
                         )
+
                         if course_created:
                             created_courses.append(course.name)
                         else:
-                            # Update existing course fields if needed
-                            if instructor:
+                            # update if provided
+                            if instructor is not None:
                                 course.instructor = instructor
-                            if head_ta_request:
+                            if head_ta_request is not None:
                                 course.head_TA = head_ta_request
-                            if row["condition"]:
-                                course.condition = row["condition"]
-                                #course.condition = float(row["condition"]) if row["condition"] else None
+                            if row.get("condition"):
+                                course.condition = condition_val
                             course.save()
-                    except Exception as e:
-                        self.message_user(request, f"Error processing row for {row.get('name', 'Unknown')}: {e}", level="error")
 
-                self.message_user(request, f"{len(created_courses)} courses created/updated successfully.", level="success")
+                    except Exception as e:
+                        self.message_user(
+                            request,
+                            f"Error processing row for {row.get('name', 'Unknown')}: {e}",
+                            level="error",
+                        )
+
+                self.message_user(
+                    request,
+                    f"{len(created_courses)} courses created/updated successfully.",
+                    level="success",
+                )
                 return redirect("..")
         else:
             form = BulkCourseUploadForm()
@@ -158,13 +254,10 @@ def add_bulk_upload_functionality_to_course(admin_class):
         context["opts"] = self.model._meta
         return TemplateResponse(request, "admin/bulk_upload_courses.html", context)
 
-    # Add the custom methods to the admin class
     admin_class.get_urls = get_urls
     admin_class.bulk_upload = bulk_upload
     return admin_class
 
-# Import the existing CourseAdmin
-from course.admin import CourseAdmin
 
-# Extend the functionality
+from course.admin import CourseAdmin
 CourseAdmin = add_bulk_upload_functionality_to_course(CourseAdmin)
